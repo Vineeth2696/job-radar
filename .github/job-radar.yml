@@ -1,0 +1,42 @@
+name: Job Radar - 5 Minute Schedule
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-job-radar:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      
+      - name: Run job radar script
+        run: python main.py > output.log 2>&1
+        continue-on-error: true
+      
+      - name: Send email with results
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: 'Job Radar Results - ${{ job.status }}'
+          to: ${{ secrets.ALERT_EMAIL }}
+          from: ${{ secrets.GMAIL_USER }}
+          body: 'Job completed. See attached log.'
+          attachments: output.log
