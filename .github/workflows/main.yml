@@ -1,0 +1,53 @@
+name: Job Radar - 5 Minute Schedule
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-job-radar:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Run job radar script
+        id: job_radar
+        run: |
+          node scan.js > output.log 2>&1 || echo "FAILED"
+          cat output.log
+        continue-on-error: true
+      
+      - name: Send results via email
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: 'Job Radar Results - ${{ job.status }} - Run ${{ github.run_id }}'
+          to: ${{ secrets.ALERT_EMAIL }}
+          from: ${{ secrets.GMAIL_USER }}
+          body: |
+            Job Radar Execution Report
+            ============================
+            Status: ${{ job.status }}
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit SHA: ${{ github.sha }}
+            Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Script Output:
+            See attached output.log file
+          attachments: output.log
